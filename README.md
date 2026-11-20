@@ -110,7 +110,7 @@ The image is a multi-stage build of the Next.js standalone output (`Dockerfile`)
 | Build pack | Dockerfile (`/Dockerfile`) |
 | Port | `3000` |
 | Domains | `https://bangicarrental.my,https://www.bangicarrental.my` (the app redirects `www` to the bare domain) |
-| Health check | `GET /api/health` on port 3000, expect 200 |
+| Health check | `GET /api/health`, host `127.0.0.1` (not `localhost`, which resolves to IPv6 inside the container), port 3000, expect 200 |
 
 **Scheduled task** (Coolify > Application > Scheduled Tasks): name `tick`, frequency `* * * * *`, command `node cron-tick.mjs`. It runs inside the app container and calls `/api/cron/tick` with `Authorization: Bearer $CRON_SECRET`. Each run releases expired checkout holds (after closing and re-checking the Stripe session), retries queued emails and, once an hour, applies document retention. Runs are idempotent and safe across restarts and deployments.
 
