@@ -1,0 +1,47 @@
+{
+  "name": "bangicarrental",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "vitest run tests/unit tests/db",
+    "test:integration": "vitest run tests/integration",
+    "test:e2e": "playwright test",
+    "db:push": "supabase db push",
+    "admin:grant": "node scripts/grant-admin.mjs",
+    "cleanup:test-data": "node scripts/cleanup-test-data.mjs"
+  },
+  "dependencies": {
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.119.2",
+    "next": "16.4.6",
+    "pdf-lib": "1.17.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "^0.0.1",
+    "stripe": "23.2.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.17",
+    "@playwright/test": "1.65.1",
+    "@tailwindcss/turbopack": "4.3.3",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "dotenv": "^18.0.10",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.6",
+    "tailwindcss": "4.3.3",
+    "typescript": "^5",
+    "vitest": "5.1.1"
+  },
+  "packageManager": "pnpm@10.12.4",
+  "engines": {
+    "node": ">=22"
+  }
+}

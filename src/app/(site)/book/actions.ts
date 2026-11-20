@@ -1,0 +1,110 @@
+'use server';
+
+import { redirect } from 'next/navigation';
+import { z } from 'zod';
+import { audit } from '@/lib/audit';
+import { errorCode } from '@/lib/catalogue';
+import { isLocale } from '@/lib/i18n/config';
+import { createCheckoutSession, reconcileExpiredHolds } from '@/lib/payments';
+import { getLaunchStatus, getSettings, localized } from '@/lib/settings';
+import { createServiceClient } from '@/lib/supabase/server';
+import { parseKlLocal } from '@/lib/time';
+
+export type CheckoutState = {
+  /** Field name -> error key in the dictionary (d.errors[key]). */
+  fieldErrors?: Partial<Record<'name' | 'email' | 'phone' | 'agree', string>>;
+  /** Form-level error key in the dictionary. */
+  error?: string;
+  /** Echoed back so the fields keep what was typed after a failed submit. */
+  values?: { name: string; email: string; phone: string };
+};
+
+const Contact = z.object({
+  name: z.string().trim().min(2).max(120),
+  email: z.string().trim().toLowerCase().email().max(200),
+  phone: z.string().trim().regex(/^\+?\d[\d\s-]{7,17}$/),
+});
+
+/**
+ * Starts checkout: validates on the server, secures a hold on a physical
+ * unit, then sends the visitor to Stripe. Nothing from the browser is trusted
+ * for price or availability; only the model, the dates and the contact details are read.
+ */
+export async function startCheckout(_prev: CheckoutState, form: FormData): Promise<CheckoutState> {
+  const fieldErrors: CheckoutState['fieldErrors'] = {};
+  const values = {
+    name: String(form.get('name') ?? '').slice(0, 120),
+    email: String(form.get('email') ?? '').slice(0, 200),
+    phone: String(form.get('phone') ?? '').slice(0, 20),
+  };
+  const parsed = Contact.safeParse({ name: form.get('name'), email: form.get('email'), phone: form.get('phone') });
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) fieldErrors[issue.path[0] as 'name' | 'email' | 'phone'] = String(issue.path[0]);
+  }
+  if (form.get('agree') !== 'on') fieldErrors.agree = 'agree';
+  if (!parsed.success || Object.keys(fieldErrors).length > 0) return { fieldErrors, values };
+
+  const start = parseKlLocal(String(form.get('from') ?? ''));
+  const end = parseKlLocal(String(form.get('to') ?? ''));
+  const modelId = String(form.get('model_id') ?? '');
+  if (!start || !end || !/^[0-9a-f-]{36}$/i.test(modelId)) return { error: 'INVALID_PERIOD', values };
+  const localeInput = form.get('locale');
+  const locale = isLocale(localeInput) ? localeInput : 'ms';
+
+  const launch = await getLaunchStatus();
+  if (launch.paymentMode === 'unconfigured') return { error: 'PAYMENT_UNAVAILABLE', values };
+  if (!launch.bookingsOpen) return { error: 'BOOKINGS_CLOSED', values };
+
+  // Free any units whose unpaid hold has run out before trying to take one.
+  try {
+    await reconcileExpiredHolds();
+  } catch {
+    // Not fatal: a stale hold only makes the unit look busy for longer.
+  }
+
+  const db = createServiceClient();
+  const settings = await getSettings();
+  const { data: hold, error } = await db.rpc('create_booking_hold', {
+    p_model_id: modelId,
+    p_starts_at: start.toISOString(),
+    p_ends_at: end.toISOString(),
+    p_name: parsed.data.name,
+    p_email: parsed.data.email,
+    p_phone: parsed.data.phone,
+    p_locale: locale,
+    p_cancellation_terms: localized(settings, 'cancellation_terms', locale),
+  });
+  if (error || !hold) return { error: errorCode(error?.message), values };
+
+  const result = hold as {
+    booking_id: string;
+    reference: string;
+    hold_minutes: number;
+    quote: { model_name: string; days: number; rental_total_sen: number };
+  };
+
+  let checkoutUrl: string;
+  try {
+    checkoutUrl = await createCheckoutSession({
+      booking: {
+        id: result.booking_id,
+        reference: result.reference,
+        customer_email: parsed.data.email,
+        rental_total_sen: result.quote.rental_total_sen,
+        days: result.quote.days,
+        starts_at: start.toISOString(),
+        ends_at: end.toISOString(),
+      },
+      modelName: result.quote.model_name,
+      locale,
+      holdMinutes: result.hold_minutes,
+    });
+  } catch (err) {
+    console.error('[checkout] could not create payment session', err instanceof Error ? err.name : 'error');
+    await db.rpc('release_booking_hold', { p_booking_id: result.booking_id, p_payment_status: 'failed' });
+    return { error: 'PAYMENT_UNAVAILABLE', values };
+  }
+
+  await audit({ action: 'booking.hold_created', bookingId: result.booking_id, entityType: 'booking', entityId: result.booking_id });
+  redirect(checkoutUrl);
+}

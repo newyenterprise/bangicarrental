@@ -1,0 +1,220 @@
+@import 'tailwindcss';
+
+/* Palette and shapes taken from design/Bangi-Car-Rental.html */
+@theme {
+  --color-cream: #faf9f4;
+  --color-ink: #163c33;
+  --color-green: #195642;
+  --color-green-deep: #155544;
+  --color-leaf: #317354;
+  --color-sage: #e8eedf;
+  --color-sage-deep: #d8dfcc;
+  --color-mist: #eaf0e5;
+  --color-sun: #f3c566;
+  --color-amber: #e8882b;
+  --color-line: #d9ded5;
+  --color-line-soft: #e1e6df;
+  --color-muted: #58685e;
+  --color-chip: #efefe9;
+  --color-live: #e0f0df;
+  --color-live-ink: #205735;
+  --color-danger: #a3341f;
+  --color-danger-soft: #fbeae5;
+  --color-warn-soft: #fdf3da;
+  --color-warn-ink: #6b4a08;
+  --font-sans: var(--font-dm-sans), Arial, sans-serif;
+  --font-serif: Georgia, 'Times New Roman', serif;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-amber);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Long words (emails, references, Malay compounds) must never push a phone layout sideways. */
+h1,
+h2,
+h3,
+p,
+dd,
+dt,
+li,
+label,
+td,
+th {
+  overflow-wrap: anywhere;
+}
+
+@layer components {
+  .container-page {
+    width: 100%;
+    max-width: 1240px;
+    margin-inline: auto;
+    padding-inline: clamp(16px, 5vw, 62px);
+  }
+  .container-narrow {
+    width: 100%;
+    max-width: 720px;
+    margin-inline: auto;
+    padding-inline: 16px;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 12px 18px;
+    border-radius: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+    background: var(--color-green);
+    color: #fff;
+    cursor: pointer;
+    transition: background-color 0.15s;
+  }
+  .btn:hover {
+    background: var(--color-green-deep);
+  }
+  .btn[disabled],
+  .btn[aria-disabled='true'] {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .btn-secondary {
+    background: #fff;
+    color: var(--color-ink);
+    border: 1px solid #c8d1c8;
+  }
+  .btn-secondary:hover {
+    background: var(--color-mist);
+  }
+  .btn-danger {
+    background: var(--color-danger);
+  }
+  .btn-danger:hover {
+    background: #862a18;
+  }
+  .btn-sm {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 14px;
+    border-radius: 10px;
+  }
+  .btn-plain {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 6px 8px;
+    font-weight: 700;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  .btn-plain:hover {
+    background: var(--color-mist);
+  }
+  .card {
+    background: #fff;
+    border: 1px solid var(--color-line);
+    border-radius: 17px;
+    padding: 17px;
+  }
+  .field-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .field-input {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 48px;
+    padding: 10px 12px;
+    border: 1px solid #b9c4b8;
+    border-radius: 10px;
+    background: #fff;
+    color: var(--color-ink);
+    /* 16px stops iOS Safari zooming into the field */
+    font-size: 16px;
+  }
+  .field-input[aria-invalid='true'] {
+    border-color: var(--color-danger);
+  }
+  .field-hint {
+    font-size: 13px;
+    color: var(--color-muted);
+    margin-top: 5px;
+  }
+  .field-error {
+    font-size: 14px;
+    color: var(--color-danger);
+    font-weight: 600;
+    margin-top: 5px;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+    border-radius: 20px;
+    background: var(--color-chip);
+    padding: 6px 10px;
+  }
+  .tag-live {
+    background: var(--color-live);
+    color: var(--color-live-ink);
+  }
+  .tag-warn {
+    background: var(--color-warn-soft);
+    color: var(--color-warn-ink);
+  }
+  .tag-danger {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+  .row-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--color-line-soft);
+  }
+  .row-line > :last-child {
+    text-align: right;
+    font-weight: 700;
+  }
+  .notice {
+    border-radius: 14px;
+    padding: 14px 16px;
+    background: var(--color-mist);
+    line-height: 1.5;
+  }
+  .notice-warn {
+    background: var(--color-warn-soft);
+    color: var(--color-warn-ink);
+  }
+  .notice-danger {
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
+  }
+  .h-display {
+    font-weight: 800;
+    letter-spacing: -0.055em;
+    line-height: 1.05;
+  }
+}
