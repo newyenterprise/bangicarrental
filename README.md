@@ -53,6 +53,8 @@ For local development set `APP_URL=http://localhost:3000` and, if you have no Re
 6. **Authentication > URL Configuration:** Site URL `https://bangicarrental.my`; add redirect URLs `https://bangicarrental.my/**` and `http://localhost:3000/**`.
 7. Copy the project URL, the anon/publishable key and the service-role key into the environment variables.
 
+**Migration history on the production project:** the first setup was applied through the Supabase connector (and `supabase/manual/release_and_cancel.sql` by hand), so the versions recorded in the project do not match the file names in `supabase/migrations`. Before the first `pnpm db:push`, mark the existing files as applied: `supabase migration repair --status applied 20261120000100 20261120000200 20261120000300 20261120000400 20261120000500`, and mark the connector-created versions shown by `supabase migration list` as reverted.
+
 New tables added later get no API access by default only if you keep the pattern in `*_rls.sql`: enable RLS, revoke from `anon`/`authenticated`, grant `select` where needed.
 
 ## First admin
@@ -82,6 +84,8 @@ where id = (select id from auth.users where email = 'owner@yourdomain.com');
 | `RUN_SUPABASE_TESTS=1 pnpm test:integration` | The same rules on the real project over separate connections: concurrent customers, real Auth sessions, private Storage | `.env.local` with Supabase keys |
 | `pnpm test:e2e` | Browser tests at phone and desktop widths in both languages | running app + Supabase (+ `pnpm exec playwright install chromium` once) |
 | `pnpm build` | Production build | nothing |
+
+The browser tests include the full renter and admin journey (`tests/e2e/journey.spec.ts`). Point them at a deployed site with `E2E_BASE_URL=https://bangicarrental.my pnpm test:e2e`; that is more reliable than the dev server, which reloads pages while compiling. A real Stripe test-mode payment is opt-in: `RUN_STRIPE_CHECKOUT=1 pnpm exec playwright test tests/e2e/checkout.spec.ts --project=desktop`.
 
 Tests only create `*@example.test` records. Remove them with `pnpm cleanup:test-data` (dry run) then `--confirm`.
 
