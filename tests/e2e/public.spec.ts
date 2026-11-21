@@ -47,7 +47,7 @@ test.describe('public site', () => {
     await expect(page.getByTestId('pay-now')).toHaveText('RM700');
     await expect(page.getByText('Sewa 2 hari × RM350')).toBeVisible();
     await expect(page.getByTestId('deposit')).toBeVisible();
-    await expect(page.getByText('Bayar semasa ambil')).toBeVisible();
+    await expect(page.getByText('Bayar semasa ambil', { exact: true })).toBeVisible();
     await expect(page.getByText(/dibundarkan ke hari penuh berikutnya/)).toBeVisible();
     await expect(page.getByText('Pembatalan dan bayaran balik')).toBeVisible();
     // one hour later tips it into a third day

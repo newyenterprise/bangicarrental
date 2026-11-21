@@ -28,7 +28,10 @@ export function readPeriod(params: Record<string, string | string[] | undefined>
 
 /** Sensible defaults for the date search: tomorrow 10 am to the day after, Kuala Lumpur time. */
 export function defaultPeriod(leadTimeHours: number): { from: string; to: string; min: string } {
-  const earliest = new Date(Date.now() + leadTimeHours * 3600_000);
+  // Rounded up to a quarter hour: browsers validate the 15-minute step relative to `min`,
+  // so an unaligned minimum would make ordinary times such as 10:00 invalid.
+  const QUARTER = 15 * 60_000;
+  const earliest = new Date(Math.ceil((Date.now() + leadTimeHours * 3600_000) / QUARTER) * QUARTER);
   const base = toKlLocal(new Date(earliest.getTime() + 24 * 3600_000)).slice(0, 10);
   const start = new Date(`${base}T10:00:00+08:00`);
   const end = new Date(start.getTime() + 24 * 3600_000);
