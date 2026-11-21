@@ -64,6 +64,18 @@ export async function signOut(page: Page): Promise<void> {
 
 /** Fails when anything makes the page wider than the screen. */
 export async function expectNoHorizontalOverflow(page: Page, label: string): Promise<void> {
+  // Let any in-flight refresh settle first (a language switch re-renders the page).
+  await page.waitForLoadState('networkidle').catch(() => undefined);
+  try {
+    await measureOverflow(page, label);
+  } catch (error) {
+    if (!String(error).includes('Execution context was destroyed')) throw error;
+    await page.waitForLoadState('networkidle').catch(() => undefined);
+    await measureOverflow(page, label);
+  }
+}
+
+async function measureOverflow(page: Page, label: string): Promise<void> {
   const overflow = await page.evaluate(() => {
     const width = document.documentElement.clientWidth;
     const offenders: string[] = [];
