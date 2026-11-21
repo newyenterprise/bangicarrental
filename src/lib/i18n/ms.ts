@@ -107,7 +107,7 @@ export const ms = {
     payButton: 'Teruskan ke bayaran · {amount}',
     paying: 'Menyediakan bayaran…',
     holdNote: 'Kereta ditahan untuk anda selama {minutes} minit sementara anda bayar.',
-    securePayment: 'Bayaran selamat melalui Stripe. Kad dan FPX diterima jika tersedia.',
+    securePayment: 'Bayaran selamat melalui FPX (perbankan dalam talian) atau kad.',
     unavailableTitle: 'Tarikh ini tak tersedia',
     unavailableBody: '{model} sudah ditempah atau tidak beroperasi pada tempoh ini. Cuba tarikh lain.',
     notBookableTitle: 'Model ini belum boleh ditempah',

@@ -179,7 +179,7 @@ export default async function AdminBookingPage({ params }: PageProps<'/admin/boo
         {payments.map((p) => (
           <dl key={p.id} className="mt-2 rounded-xl border border-line-soft px-3 text-sm">
             <Row label={L('Pembekal', 'Provider')}>
-              {p.provider === 'manual' ? L('Luar talian', 'Offline') : 'Stripe'} {p.provider === 'stripe' && <span className={p.livemode ? 'tag tag-live' : 'tag tag-warn'}>{p.livemode ? 'LIVE' : 'TEST'}</span>}
+              {p.provider === 'manual' ? L('Luar talian', 'Offline') : p.provider === 'billplz' ? 'Billplz' : 'Stripe'} {p.provider !== 'manual' && <span className={p.livemode ? 'tag tag-live' : 'tag tag-warn'}>{p.livemode ? 'LIVE' : 'TEST'}</span>}
             </Row>
             <Row label={L('Status', 'Status')}>{p.status}</Row>
             <Row label={L('Jumlah', 'Amount')}>{formatRM(p.amount_sen)}</Row>

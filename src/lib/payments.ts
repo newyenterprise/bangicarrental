@@ -3,7 +3,8 @@ import Stripe from 'stripe';
 import { audit } from './audit';
 import type { SessionUser } from './auth';
 import { enqueueEmail } from './email/outbox';
-import { env } from './env';
+import { billplzBaseUrl, createBill, deleteBill, getBill, type BillplzBill } from './billplz';
+import { env, type PaymentProvider } from './env';
 import type { Locale } from './i18n/config';
 import { createServiceClient } from './supabase/server';
 import { formatDateTime } from './time';
@@ -79,6 +80,104 @@ export async function createCheckoutSession(input: {
   return session.url;
 }
 
+type CheckoutInput = Parameters<typeof createCheckoutSession>[0] & { customerName: string };
+
+/** Creates a Billplz bill for a booking that already holds a unit. */
+async function createBillplzCheckout(input: CheckoutInput): Promise<string> {
+  const { booking, modelName, locale } = input;
+  const period = `${formatDateTime(booking.starts_at, locale)} - ${formatDateTime(booking.ends_at, locale)}`;
+  const what = locale === 'en' ? `${modelName} rental, ${booking.days} day(s)` : `Sewa ${modelName}, ${booking.days} hari`;
+  const bill = await createBill({
+    email: booking.customer_email,
+    name: input.customerName,
+    amountSen: booking.rental_total_sen,
+    description: `${booking.reference} · ${what} · ${period}`,
+    reference: booking.reference,
+    callbackUrl: `${env.appUrl}/api/billplz/callback`,
+    // Billplz appends billplz[id], billplz[paid]... and a signature to this address.
+    redirectUrl: `${env.appUrl}/book/status?b=${booking.id}`,
+  });
+  const { error } = await createServiceClient().from('payments').insert({
+    booking_id: booking.id,
+    provider: 'billplz',
+    checkout_session_id: bill.id,
+    amount_sen: booking.rental_total_sen,
+    status: 'open',
+    livemode: !env.billplzSandbox,
+  });
+  if (error) {
+    await deleteBill(bill.id).catch(() => undefined);
+    throw new Error('PAYMENT_UNAVAILABLE');
+  }
+  return bill.url;
+}
+
+/** Starts hosted checkout with the given provider and returns the address to send the customer to. */
+export async function createCheckout(provider: PaymentProvider, input: CheckoutInput): Promise<string> {
+  return provider === 'billplz' ? createBillplzCheckout(input) : createCheckoutSession(input);
+}
+
+export type PaymentRef = { provider: string; checkout_session_id: string };
+
+/** Applies the state of a Billplz bill (from a verified callback or fetched with our API key). */
+export async function applyBillplzBill(bill: BillplzBill): Promise<CheckoutOutcome> {
+  const db = createServiceClient();
+  const { data: payment } = await db.from('payments').select('booking_id').eq('provider', 'billplz').eq('checkout_session_id', bill.id).maybeSingle();
+  if (!payment) return 'not_found';
+  if (bill.paid && bill.state === 'paid') {
+    const { data, error } = await db.rpc('record_payment_success', {
+      p_booking_id: payment.booking_id,
+      p_checkout_session_id: bill.id,
+      p_payment_intent_id: bill.id,
+      p_amount_sen: bill.paid_amount || bill.amount,
+      p_method: 'billplz',
+      p_receipt_url: bill.url || `${billplzBaseUrl()}/bills/${bill.id}`,
+      p_livemode: !env.billplzSandbox,
+    });
+    if (error) throw new Error('record_payment_success failed');
+    if (data === 'needs_attention') return 'needs_attention';
+    return data === 'not_found' ? 'not_found' : 'paid';
+  }
+  if (bill.state === 'deleted') {
+    await db.rpc('release_booking_hold', { p_booking_id: payment.booking_id, p_payment_status: 'expired' });
+    return 'expired';
+  }
+  return 'open';
+}
+
+/** Authenticated reconciliation for either provider: reads the live state and applies it. */
+export async function syncPayment(ref: PaymentRef): Promise<CheckoutOutcome> {
+  if (ref.provider === 'billplz') {
+    const bill = await getBill(ref.checkout_session_id);
+    return bill ? applyBillplzBill(bill) : 'not_found';
+  }
+  return syncCheckoutSession(ref.checkout_session_id);
+}
+
+/** Closes an unpaid checkout so it can no longer be paid. Errors are left to the re-check that follows. */
+async function closeCheckout(ref: PaymentRef): Promise<void> {
+  try {
+    if (ref.provider === 'billplz') await deleteBill(ref.checkout_session_id);
+    else await getStripe().checkout.sessions.expire(ref.checkout_session_id);
+  } catch {
+    // It may have completed or expired in the meantime; the re-check decides.
+  }
+}
+
+/** Address to resume an unfinished checkout, or null when it can no longer be paid. */
+export async function resumeUrl(ref: PaymentRef): Promise<string | null> {
+  try {
+    if (ref.provider === 'billplz') {
+      const bill = await getBill(ref.checkout_session_id);
+      return bill && bill.state === 'due' ? bill.url : null;
+    }
+    const session = await getStripe().checkout.sessions.retrieve(ref.checkout_session_id);
+    return session.status === 'open' ? session.url : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Authenticated reconciliation: asks Stripe (with our secret key) for the
  * current state of a session and applies it. This, and verified webhook
@@ -143,7 +242,7 @@ export async function reconcileExpiredHolds(): Promise<{ checked: number; releas
     try {
       const { data: payment } = await db
         .from('payments')
-        .select('checkout_session_id')
+        .select('provider, checkout_session_id')
         .eq('booking_id', hold.booking_id)
         .not('checkout_session_id', 'is', null)
         .order('created_at', { ascending: false })
@@ -157,15 +256,12 @@ export async function reconcileExpiredHolds(): Promise<{ checked: number; releas
         continue;
       }
 
-      let outcome = await syncCheckoutSession(payment.checkout_session_id);
+      const ref = { provider: payment.provider, checkout_session_id: payment.checkout_session_id };
+      let outcome = await syncPayment(ref);
       if (outcome === 'open') {
-        // Close the session first so it can no longer be paid, then check it once more.
-        try {
-          await getStripe().checkout.sessions.expire(payment.checkout_session_id);
-        } catch {
-          // It may have completed or expired in the meantime; the re-check below decides.
-        }
-        outcome = await syncCheckoutSession(payment.checkout_session_id);
+        // Close the checkout first so it can no longer be paid, then check it once more.
+        await closeCheckout(ref);
+        outcome = await syncPayment(ref);
       }
       if (outcome === 'expired') result.released += 1;
       else if (outcome === 'paid') result.paid += 1;
@@ -319,8 +415,9 @@ export async function issueRefund(input: {
   const request = data as { refund_id: string; duplicate: boolean; status: string; provider?: string; payment_intent_id?: string | null };
   if (request.duplicate) return { ok: true, duplicate: true, status: request.status };
 
-  if (request.provider === 'manual') {
-    // Paid offline, so the money is returned offline too; this records it.
+  if (request.provider !== 'stripe') {
+    // Paid offline or through Billplz (which has no refund API): the money is
+    // returned by the operator outside the app, and this records that it was.
     await db.from('refunds').update({ status: 'succeeded', updated_at: new Date().toISOString() }).eq('id', request.refund_id);
     await db.rpc('sync_refund_totals', { p_booking_id: input.bookingId });
     await notifyRefund(input.bookingId, request.refund_id, input.amountSen, input.reason);

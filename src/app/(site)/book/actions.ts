@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { audit } from '@/lib/audit';
 import { errorCode } from '@/lib/catalogue';
 import { isLocale } from '@/lib/i18n/config';
-import { createCheckoutSession, reconcileExpiredHolds } from '@/lib/payments';
+import { createCheckout, reconcileExpiredHolds } from '@/lib/payments';
 import { getLaunchStatus, getSettings, localized } from '@/lib/settings';
 import { createServiceClient } from '@/lib/supabase/server';
 import { parseKlLocal } from '@/lib/time';
@@ -83,28 +83,38 @@ export async function startCheckout(_prev: CheckoutState, form: FormData): Promi
     quote: { model_name: string; days: number; rental_total_sen: number };
   };
 
-  let checkoutUrl: string;
-  try {
-    checkoutUrl = await createCheckoutSession({
-      booking: {
-        id: result.booking_id,
-        reference: result.reference,
-        customer_email: parsed.data.email,
-        rental_total_sen: result.quote.rental_total_sen,
-        days: result.quote.days,
-        starts_at: start.toISOString(),
-        ends_at: end.toISOString(),
-      },
-      modelName: result.quote.model_name,
-      locale,
-      holdMinutes: result.hold_minutes,
-    });
-  } catch (err) {
-    console.error('[checkout] could not create payment session', err instanceof Error ? err.name : 'error');
+  const checkoutInput = {
+    booking: {
+      id: result.booking_id,
+      reference: result.reference,
+      customer_email: parsed.data.email,
+      rental_total_sen: result.quote.rental_total_sen,
+      days: result.quote.days,
+      starts_at: start.toISOString(),
+      ends_at: end.toISOString(),
+    },
+    customerName: parsed.data.name,
+    modelName: result.quote.model_name,
+    locale,
+    holdMinutes: result.hold_minutes,
+  };
+  // Try the primary provider, then the backup (only ever one in the same test/live mode).
+  let checkoutUrl: string | null = null;
+  let usedProvider = launch.provider;
+  for (const provider of [launch.provider, launch.backup]) {
+    if (!provider || checkoutUrl) continue;
+    try {
+      checkoutUrl = await createCheckout(provider, checkoutInput);
+      usedProvider = provider;
+    } catch (err) {
+      console.error(`[checkout] ${provider} could not create the payment`, err instanceof Error ? err.message.slice(0, 80) : 'error');
+    }
+  }
+  if (!checkoutUrl) {
     await db.rpc('release_booking_hold', { p_booking_id: result.booking_id, p_payment_status: 'failed' });
     return { error: 'PAYMENT_UNAVAILABLE', values };
   }
 
-  await audit({ action: 'booking.hold_created', bookingId: result.booking_id, entityType: 'booking', entityId: result.booking_id });
+  await audit({ action: 'booking.hold_created', bookingId: result.booking_id, entityType: 'booking', entityId: result.booking_id, metadata: { provider: usedProvider } });
   redirect(checkoutUrl);
 }

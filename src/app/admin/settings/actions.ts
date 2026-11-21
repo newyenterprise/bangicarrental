@@ -44,6 +44,7 @@ const Settings = z.object({
   email_from: sender,
   email_reply_to: optionalEmail,
   admin_alert_email: optionalEmail,
+  payment_provider: z.enum(['billplz', 'stripe']),
 });
 
 export async function saveSettingsAction(_prev: FormState, form: FormData): Promise<FormState> {

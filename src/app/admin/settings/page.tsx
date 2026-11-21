@@ -93,6 +93,18 @@ export default async function AdminSettingsPage() {
             { name: 'hold_minutes', label: L('Tempoh tahanan semasa bayaran (minit, 30–120)', 'Checkout hold (minutes, 30–120)'), type: 'number', required: true, min: 30, max: 120, inputMode: 'numeric', defaultValue: String(settings.hold_minutes) },
             { name: 'max_rental_days', label: L('Tempoh sewa maksimum (hari)', 'Maximum rental length (days)'), type: 'number', required: true, min: 1, max: 365, inputMode: 'numeric', defaultValue: String(settings.max_rental_days) },
             { name: 'document_retention_days', label: L('Simpan dokumen pengenalan (hari selepas sewaan; 0 = jangan padam automatik)', 'Keep identity documents (days after the rental; 0 = never auto-delete)'), type: 'number', required: true, min: 0, max: 3650, inputMode: 'numeric', defaultValue: String(settings.document_retention_days) },
+            {
+              name: 'payment_provider',
+              label: L('Penyedia bayaran utama', 'Primary payment provider'),
+              type: 'select',
+              required: true,
+              defaultValue: settings.payment_provider ?? 'billplz',
+              options: [
+                { value: 'billplz', label: L('Billplz (FPX dan kad)', 'Billplz (FPX and card)') },
+                { value: 'stripe', label: 'Stripe' },
+              ],
+              hint: L('Pelanggan dihantar ke penyedia ini. Yang satu lagi digunakan secara automatik hanya jika penyedia utama gagal mencipta bayaran. Bayaran balik Billplz dibuat secara manual.', 'Customers are sent to this provider. The other is used automatically only if the primary cannot create the payment. Billplz refunds are made manually.'),
+            },
             { name: 'email_from', label: L('Emel penghantar', 'Sender email'), defaultValue: settings.email_from, placeholder: 'Bangi Car Rental <tempahan@bangicarrental.my>', hint: L('Domain mesti disahkan di Resend.', 'The domain must be verified in Resend.') },
             { name: 'email_reply_to', label: L('Emel balasan', 'Reply-to email'), type: 'email', inputMode: 'email', defaultValue: settings.email_reply_to },
             { name: 'admin_alert_email', label: L('Emel amaran admin', 'Admin alert email'), type: 'email', inputMode: 'email', defaultValue: settings.admin_alert_email, hint: L('Menerima amaran tempahan dibayar, dokumen untuk disemak dan isu bayaran.', 'Receives alerts for paid bookings, documents to review and payment issues.') },
@@ -103,9 +115,19 @@ export default async function AdminSettingsPage() {
       <Section id="integrations" title={L('Status integrasi', 'Integration status')}>
         <p className="field-hint mb-2">{L('Nilai rahsia ditetapkan sebagai pemboleh ubah persekitaran di Coolify dan tidak dipaparkan di sini.', 'Secret values are set as environment variables in Coolify and are never shown here.')}</p>
         <dl>
-          <Row label={L('Mod Stripe', 'Stripe mode')}>
+          <Row label={L('Penyedia bayaran yang digunakan', 'Payment provider in use')}>
+            <span className="font-bold">{launch.provider === 'billplz' ? 'Billplz' : 'Stripe'}</span>{' '}
             <span className={mode === 'live' ? 'tag tag-live' : mode === 'test' ? 'tag tag-warn' : 'tag tag-danger'}>{mode === 'live' ? 'LIVE' : mode === 'test' ? 'TEST' : L('Tiada kunci', 'No key')}</span>
           </Row>
+          <Row label={L('Sandaran jika gagal', 'Backup if it fails')}>
+            {launch.backup ? (launch.backup === 'billplz' ? 'Billplz' : 'Stripe') : <span className="text-muted">{L('Tiada (perlu kunci dalam mod yang sama)', 'None (needs keys in the same mode)')}</span>}
+          </Row>
+          <Row label="Billplz">
+            {has('BILLPLZ_API_KEY') && has('BILLPLZ_COLLECTION_ID') && has('BILLPLZ_X_SIGNATURE_KEY') ? (
+              <span className={process.env.BILLPLZ_SANDBOX === 'false' ? 'tag tag-live' : 'tag tag-warn'}>{process.env.BILLPLZ_SANDBOX === 'false' ? 'LIVE' : 'SANDBOX'}</span>
+            ) : no}
+          </Row>
+          <Row label="STRIPE_SECRET_KEY">{has('STRIPE_SECRET_KEY') ? yes : no}</Row>
           <Row label="STRIPE_WEBHOOK_SECRET">{has('STRIPE_WEBHOOK_SECRET') ? yes : no}</Row>
           <Row label="RESEND_API_KEY">{has('RESEND_API_KEY') ? yes : no}</Row>
           <Row label="CRON_SECRET">{has('CRON_SECRET') ? yes : no}</Row>

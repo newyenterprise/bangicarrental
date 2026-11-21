@@ -1,6 +1,6 @@
 import 'server-only';
 import { cache } from 'react';
-import { paymentMode, type PaymentMode } from './env';
+import { otherProvider, providerMode, type PaymentMode, type PaymentProvider } from './env';
 import { createServiceClient } from './supabase/server';
 import type { Locale } from './i18n/config';
 import type { Settings } from './types';
@@ -21,7 +21,12 @@ export type LaunchItem = { key: string; done: boolean; ms: string; en: string; h
 export type LaunchStatus = {
   items: LaunchItem[];
   complete: boolean;
+  /** Mode of the provider customers are actually sent to. */
   paymentMode: PaymentMode;
+  /** The provider in use: the chosen primary, or the backup when the primary has no credentials. */
+  provider: PaymentProvider;
+  /** A second provider to try if the first cannot create the payment. Only ever one in the same mode. */
+  backup: PaymentProvider | null;
   /** Whether a visitor may start checkout right now. */
   bookingsOpen: boolean;
 };
@@ -40,7 +45,13 @@ export const getLaunchStatus = cache(async (): Promise<LaunchStatus> => {
   ]);
   const published = new Set((templates ?? []).map((t) => t.locale));
   const bookableUnits = units ?? [];
-  const mode = paymentMode();
+  const primary: PaymentProvider = settings.payment_provider === 'stripe' ? 'stripe' : 'billplz';
+  const secondary = otherProvider(primary);
+  const provider = providerMode(primary) !== 'unconfigured' ? primary : secondary;
+  const mode = providerMode(provider);
+  // Never fall back across modes: a test payment must not confirm a real booking, or the reverse.
+  const backup = provider === primary && mode !== 'unconfigured' && providerMode(secondary) === mode ? secondary : null;
+  const webhookReady = provider === 'stripe' ? !!process.env.STRIPE_WEBHOOK_SECRET : true;
 
   const items: LaunchItem[] = [
     { key: 'company', done: !!settings.company_name.trim() && !!settings.contact_phone.trim(), ms: 'Nama syarikat dan nombor telefon', en: 'Company name and contact phone', href: '/admin/settings' },
@@ -51,9 +62,9 @@ export const getLaunchStatus = cache(async (): Promise<LaunchStatus> => {
     { key: 'units', done: bookableUnits.length > 0 && bookableUnits.every((u) => u.registration_no.trim() !== ''), ms: 'No. pendaftaran untuk setiap kereta yang boleh ditempah', en: 'Registration number for every bookable car', href: '/admin/fleet' },
     { key: 'agreement', done: published.has('ms') && published.has('en'), ms: 'Perjanjian diterbitkan (BM dan English)', en: 'Agreement published (BM and English)', href: '/admin/agreement' },
     { key: 'email', done: !!(settings.email_from.trim() || process.env.EMAIL_FROM) && !!process.env.RESEND_API_KEY, ms: 'Emel penghantar dan kunci Resend', en: 'Sender email and Resend key', href: '/admin/settings' },
-    { key: 'stripe', done: mode !== 'unconfigured' && !!process.env.STRIPE_WEBHOOK_SECRET, ms: 'Kunci Stripe dan rahsia webhook', en: 'Stripe keys and webhook secret', href: '/admin/settings' },
+    { key: 'payments', done: mode !== 'unconfigured' && webhookReady, ms: 'Kunci penyedia bayaran (Billplz atau Stripe)', en: 'Payment provider keys (Billplz or Stripe)', href: '/admin/settings' },
   ];
   const complete = items.every((i) => i.done);
   const bookingsOpen = mode === 'test' || (mode === 'live' && complete && settings.live_payments_enabled);
-  return { items, complete, paymentMode: mode, bookingsOpen };
+  return { items, complete, paymentMode: mode, provider, backup, bookingsOpen };
 });

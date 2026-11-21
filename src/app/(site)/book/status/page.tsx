@@ -3,7 +3,8 @@ import Link from 'next/link';
 import { SiteHeader } from '@/components/SiteChrome';
 import { fmt } from '@/lib/i18n/config';
 import { getI18n } from '@/lib/i18n/server';
-import { getStripe, syncCheckoutSession } from '@/lib/payments';
+import { redirectPairs, verifySignature } from '@/lib/billplz';
+import { resumeUrl as getResumeUrl, syncPayment, type PaymentRef } from '@/lib/payments';
 import { createServiceClient } from '@/lib/supabase/server';
 import { formatTime } from '@/lib/time';
 import { AutoRefresh } from './AutoRefresh';
@@ -29,21 +30,32 @@ export default async function StatusPage({ searchParams }: PageProps<'/book/stat
   const bookingParam = typeof params.b === 'string' && /^[0-9a-f-]{36}$/i.test(params.b) ? params.b : null;
 
   let bookingId = bookingParam;
-  let knownSession = sessionId;
+  let ref: PaymentRef | null = null;
   if (sessionId) {
-    const { data } = await db.from('payments').select('booking_id').eq('checkout_session_id', sessionId).maybeSingle();
+    const { data } = await db.from('payments').select('booking_id, provider').eq('checkout_session_id', sessionId).maybeSingle();
     bookingId = data?.booking_id ?? null;
+    if (data) ref = { provider: data.provider, checkout_session_id: sessionId };
   } else if (bookingParam) {
     const { data } = await db
       .from('payments')
-      .select('checkout_session_id')
+      .select('provider, checkout_session_id')
       .eq('booking_id', bookingParam)
       .not('checkout_session_id', 'is', null)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    knownSession = data?.checkout_session_id ?? null;
+    if (data?.checkout_session_id) ref = { provider: data.provider, checkout_session_id: data.checkout_session_id };
   }
+
+  // Billplz sends the customer back with signed billplz[...] parameters. A valid
+  // signature saying "paid" for this booking's bill means the bank has confirmed,
+  // even if the bill has not caught up yet, so we show "processing" rather than "unpaid".
+  const billplz = redirectPairs(params);
+  const billplzSaysPaid =
+    ref?.provider === 'billplz' &&
+    billplz.id === ref.checkout_session_id &&
+    billplz.pairs.billplzpaid === 'true' &&
+    verifySignature(billplz.pairs, billplz.signature);
 
   const load = async () =>
     bookingId
@@ -51,13 +63,13 @@ export default async function StatusPage({ searchParams }: PageProps<'/book/stat
       : null;
   let booking = await load();
 
-  // Still pending on our side: ask Stripe for the real state before answering.
-  if (booking && booking.status === 'pending_payment' && knownSession) {
+  // Still pending on our side: ask the payment provider for the real state before answering.
+  if (booking && booking.status === 'pending_payment' && ref) {
     try {
-      await syncCheckoutSession(knownSession);
+      await syncPayment(ref);
       booking = await load();
     } catch {
-      // Stripe unreachable: fall through and show what we know (processing/open).
+      // Provider unreachable: fall through and show what we know (processing/open).
     }
   }
 
@@ -68,17 +80,10 @@ export default async function StatusPage({ searchParams }: PageProps<'/book/stat
     else if (booking.status === 'confirmed') view = 'paid';
     else if (booking.status === 'cancelled') view = 'cancelled';
     else if (booking.status === 'expired') view = 'expired';
-    else if (booking.payment_status === 'processing' || sessionId) view = 'processing';
+    else if (booking.payment_status === 'processing' || sessionId || billplzSaysPaid) view = 'processing';
     else view = 'open';
   }
-  if (view === 'open' && knownSession) {
-    try {
-      const session = await getStripe().checkout.sessions.retrieve(knownSession);
-      resumeUrl = session.status === 'open' ? session.url : null;
-    } catch {
-      resumeUrl = null;
-    }
-  }
+  if (view === 'open' && ref) resumeUrl = await getResumeUrl(ref);
 
   const maskedEmail = booking ? booking.customer_email.replace(/^(.).*(@.*)$/, '$1•••$2') : '';
   const reference = booking && (

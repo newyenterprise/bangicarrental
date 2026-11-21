@@ -105,7 +105,7 @@ export const en: Dict = {
     payButton: 'Continue to payment · {amount}',
     paying: 'Preparing payment…',
     holdNote: 'The car is held for you for {minutes} minutes while you pay.',
-    securePayment: 'Secure payment by Stripe. Cards and FPX accepted where available.',
+    securePayment: 'Secure payment by FPX (online banking) or card.',
     unavailableTitle: 'These dates aren’t available',
     unavailableBody: 'The {model} is already booked or not operating for this period. Try different dates.',
     notBookableTitle: 'This model can’t be booked yet',

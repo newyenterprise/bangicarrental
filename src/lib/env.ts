@@ -29,6 +29,19 @@ export const env = {
   get stripeWebhookSecret() {
     return process.env.STRIPE_WEBHOOK_SECRET || '';
   },
+  get billplzApiKey() {
+    return process.env.BILLPLZ_API_KEY || '';
+  },
+  get billplzCollectionId() {
+    return process.env.BILLPLZ_COLLECTION_ID || '';
+  },
+  get billplzXSignatureKey() {
+    return process.env.BILLPLZ_X_SIGNATURE_KEY || '';
+  },
+  /** Sandbox unless BILLPLZ_SANDBOX is explicitly "false". Sandbox and production use separate credentials. */
+  get billplzSandbox() {
+    return process.env.BILLPLZ_SANDBOX !== 'false';
+  },
   get resendApiKey() {
     return process.env.RESEND_API_KEY || '';
   },
@@ -44,9 +57,17 @@ export const env = {
 };
 
 export type PaymentMode = 'unconfigured' | 'test' | 'live';
+export type PaymentProvider = 'billplz' | 'stripe';
 
-export function paymentMode(): PaymentMode {
+/** Whether a provider has credentials, and whether those are test or real-money credentials. */
+export function providerMode(provider: PaymentProvider): PaymentMode {
+  if (provider === 'billplz') {
+    if (!env.billplzApiKey || !env.billplzCollectionId || !env.billplzXSignatureKey) return 'unconfigured';
+    return env.billplzSandbox ? 'test' : 'live';
+  }
   const key = env.stripeSecretKey;
   if (!key) return 'unconfigured';
   return key.startsWith('sk_live_') || key.startsWith('rk_live_') ? 'live' : 'test';
 }
+
+export const otherProvider = (provider: PaymentProvider): PaymentProvider => (provider === 'billplz' ? 'stripe' : 'billplz');

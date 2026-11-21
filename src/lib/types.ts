@@ -33,6 +33,7 @@ export type Settings = {
   rates_confirmed: boolean;
   deposit_confirmed: boolean;
   live_payments_enabled: boolean;
+  payment_provider: 'billplz' | 'stripe';
   updated_at: string;
 };
 
@@ -172,7 +173,7 @@ export type AgreementTemplate = {
 export type Payment = {
   id: string;
   booking_id: string;
-  provider: 'stripe' | 'manual';
+  provider: 'stripe' | 'billplz' | 'manual';
   checkout_session_id: string | null;
   payment_intent_id: string | null;
   amount_sen: number;
