@@ -15,7 +15,11 @@ test.describe('stripe test checkout', () => {
     await serviceClient().from('bookings').delete().eq('customer_email', email);
   });
 
-  test('pays with a test card and returns to a confirmed booking', async ({ page }) => {
+  test('pays with a test card and returns to a confirmed booking', async ({ page }, testInfo) => {
+    // Stripe's hosted page does not finish rendering its payment options in the emulated
+    // phone browser, so the card form is only driven at desktop width. Our own pages
+    // before and after it are covered at phone width by the other specs.
+    test.skip(testInfo.project.name !== 'desktop', 'Stripe hosted checkout is driven at desktop width only');
     test.setTimeout(180_000);
     const db = serviceClient();
     // Far enough ahead to be free, different each run.
