@@ -48,7 +48,7 @@ For local development set `APP_URL=http://localhost:3000` and, if you have no Re
    ```
    The migrations create the schema, functions, RLS policies, storage buckets and starting data: three models (Serena bookable, Vellfire and Alphard as previews), one Serena unit and draft agreement templates. They create no customers, bookings or admin accounts.
 3. **Authentication > Sign In / Providers > Email:** keep email enabled, set the OTP length to **6** and turn off "Confirm email" double opt-in prompts if shown. No password sign-in is used.
-4. **Authentication > Emails > Templates:** paste `supabase/templates/otp-email.html` into both "Magic Link" and "Confirm signup". The email must show `{{ .Token }}`.
+4. **Authentication > Emails > Templates:** paste each file in `supabase/templates/` into the template named in its first lines, with the subject given there (Confirm sign up, Magic link or OTP, Invite user, Change email address, Reset password, Reauthentication). Each shows the 6-digit code (`{{ .Token }}`) first, with a link to `/auth/confirm` as a fallback. The security notifications can stay off: the site uses no passwords or phone numbers.
 5. **Authentication > Emails > SMTP Settings:** add Resend as custom SMTP (host `smtp.resend.com`, port `465`, user `resend`, password = Resend API key, sender on your verified domain). The built-in Supabase mailer is rate-limited and only delivers to project members, so real renters cannot sign in until this is done.
 6. **Authentication > URL Configuration:** Site URL `https://bangicarrental.my`; add redirect URLs `https://bangicarrental.my/**` and `http://localhost:3000/**`.
 7. Copy the project URL, the anon/publishable key and the service-role key into the environment variables.
