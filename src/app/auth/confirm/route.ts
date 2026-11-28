@@ -42,5 +42,6 @@ export async function GET(request: Request) {
   await claimBookings(user);
   if (role === 'admin') await audit({ actor: user, action: 'admin.signed_in', metadata: { via: 'email_link' } });
 
-  redirect(next || (role === 'admin' ? '/admin' : '/bookings'));
+  // A password-reset link lands on Account, where the new password is set.
+  redirect(next || (type === 'recovery' ? '/account' : role === 'admin' ? '/admin' : '/bookings'));
 }

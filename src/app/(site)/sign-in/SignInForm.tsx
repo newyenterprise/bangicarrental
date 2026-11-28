@@ -107,7 +107,9 @@ function PasswordSignIn({ next }: { next: string }) {
       <button type="submit" className="btn w-full" disabled={pending}>
         {pending ? d.auth.signingIn : d.auth.signIn}
       </button>
-      <p className="field-hint">{d.auth.forgotPassword}</p>
+      <Link href={`/forgot-password${next ? `?next=${encodeURIComponent(next)}` : ''}`} className="btn-plain -ml-2 text-sm underline">
+        {d.auth.forgotPassword}
+      </Link>
     </form>
   );
 }
