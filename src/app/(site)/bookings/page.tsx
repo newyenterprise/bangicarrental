@@ -63,9 +63,12 @@ export default async function BookingsPage() {
         <h1 className="h-display text-4xl">{d.bookings.title}</h1>
         <div className="mt-2 mb-5 flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-muted">{fmt(d.bookings.signedInAs, { email: user.email })}</p>
-          <form action={signOut}>
-            <button type="submit" className="btn-plain text-sm underline">{d.common.signOut}</button>
-          </form>
+          <div className="flex items-center gap-1">
+            <Link href="/account" className="btn-plain text-sm underline">{d.password.link}</Link>
+            <form action={signOut}>
+              <button type="submit" className="btn-plain text-sm underline">{d.common.signOut}</button>
+            </form>
+          </div>
         </div>
 
         {bookings.length === 0 ? (

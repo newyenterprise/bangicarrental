@@ -25,6 +25,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link href="/" className="btn-plain text-sm">
             {L('Laman', 'Site')}
           </Link>
+          <Link href="/account" className="btn-plain text-sm">
+            {L('Akaun', 'Account')}
+          </Link>
           <form action={signOut}>
             <button type="submit" className="btn-plain text-sm" title={user.email}>
               {L('Log keluar', 'Sign out')}

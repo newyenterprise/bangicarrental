@@ -3,9 +3,9 @@
 import { useActionState, useState } from 'react';
 import { fmt } from '@/lib/i18n/config';
 import { useI18n } from '@/lib/i18n/client';
-import { requestCode, verifyCode, type SignInState } from './actions';
+import { requestCode, signInWithPassword, verifyCode, type PasswordSignInState, type SignInState } from './actions';
 
-export function SignInForm({ next }: { next: string }) {
+function CodeSignIn({ next }: { next: string }) {
   const { d } = useI18n();
   const [sent, sendAction, sending] = useActionState<SignInState, FormData>(requestCode, { step: 'email' });
   const [checked, verifyAction, verifying] = useActionState<SignInState, FormData>(verifyCode, { step: 'code' });
@@ -73,6 +73,51 @@ export function SignInForm({ next }: { next: string }) {
         </button>
       </div>
       {sent.error && <p role="alert" className="field-error">{d.auth[sent.error]}</p>}
+    </div>
+  );
+}
+
+function PasswordSignIn({ next }: { next: string }) {
+  const { d } = useI18n();
+  const [state, action, pending] = useActionState<PasswordSignInState, FormData>(signInWithPassword, {});
+  const [show, setShow] = useState(false);
+  return (
+    <form action={action} className="space-y-4" noValidate>
+      <input type="hidden" name="next" value={next} />
+      <div>
+        <label className="field-label" htmlFor="pw-email">{d.auth.email}</label>
+        <input id="pw-email" name="email" type="email" inputMode="email" autoComplete="username" defaultValue={state.email ?? ''} required className="field-input" />
+      </div>
+      <div>
+        <label className="field-label" htmlFor="pw-password">{d.auth.password}</label>
+        <div className="flex gap-2">
+          <input id="pw-password" name="password" type={show ? 'text' : 'password'} autoComplete="current-password" required className="field-input" aria-invalid={!!state.error} />
+          <button type="button" className="btn btn-secondary btn-sm shrink-0" onClick={() => setShow((v) => !v)} aria-pressed={show}>
+            {show ? d.password.hide : d.password.show}
+          </button>
+        </div>
+      </div>
+      {state.error && <p role="alert" className="field-error">{d.auth[state.error]}</p>}
+      <button type="submit" className="btn w-full" disabled={pending}>
+        {pending ? d.auth.signingIn : d.auth.signIn}
+      </button>
+      <p className="field-hint">{d.auth.forgotPassword}</p>
+    </form>
+  );
+}
+
+/** Email code by default; an optional password for accounts that have set one. */
+export function SignInForm({ next }: { next: string }) {
+  const { d } = useI18n();
+  const [mode, setMode] = useState<'code' | 'password'>('code');
+  return (
+    <div className="space-y-4">
+      {mode === 'code' ? <CodeSignIn next={next} /> : <PasswordSignIn next={next} />}
+      <div className="border-t border-line-soft pt-3 text-center">
+        <button type="button" className="btn-plain text-sm underline" onClick={() => setMode(mode === 'code' ? 'password' : 'code')}>
+          {mode === 'code' ? d.auth.usePassword : d.auth.useCode}
+        </button>
+      </div>
     </div>
   );
 }
