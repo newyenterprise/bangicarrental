@@ -160,6 +160,7 @@ export const ms = {
     errRate: 'Terlalu banyak cubaan. Tunggu seminit sebelum minta kod baharu.',
     errCode: 'Kod salah atau sudah tamat tempoh. Semak semula atau minta kod baharu.',
     errCodeFormat: 'Masukkan kod 6 digit daripada emel.',
+    errLink: 'Pautan dalam emel itu tidak sah atau sudah tamat tempoh. Masukkan emel anda untuk dapatkan kod baharu.',
     noPassword: 'Tiada kata laluan diperlukan.',
   },
   bookings: {

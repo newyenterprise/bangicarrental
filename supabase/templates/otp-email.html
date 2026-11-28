@@ -1,15 +1,18 @@
 <!--
-  Sign-in code email (bilingual). Paste into Supabase Dashboard > Authentication >
-  Emails > Templates, for BOTH "Magic Link" and "Confirm signup", with the subject:
+  Sign-in email (bilingual). Paste into Supabase Dashboard > Authentication >
+  Emails > Templates, into BOTH "Magic Link" and "Confirm signup", with the subject:
       Kod masuk anda / Your sign-in code: {{ .Token }}
-  It must show {{ .Token }} (the 6-digit code) and must NOT rely on a link.
+  The 6-digit code ({{ .Token }}) is the main way in. The button underneath is a
+  fallback that works on any device; it opens https://bangicarrental.my/auth/confirm.
 -->
 <div style="max-width:520px;margin:0 auto;padding:28px 20px;font-family:Arial,Helvetica,sans-serif;color:#163c33;font-size:16px;background:#faf9f4">
   <p style="margin:0 0 22px;font-weight:900;font-size:20px;letter-spacing:-0.5px">Bangi Car Rental</p>
   <p style="margin:0 0 8px;line-height:1.55">Kod masuk anda untuk <b>Tempahan saya</b>:</p>
   <p style="margin:0 0 8px;line-height:1.55;color:#58685e">Your sign-in code for <b>My bookings</b>:</p>
   <p style="margin:18px 0;padding:16px;background:#eaf0e5;border-radius:14px;text-align:center;font-size:34px;font-weight:900;letter-spacing:8px">{{ .Token }}</p>
-  <p style="margin:0 0 8px;line-height:1.55">Kod ini sah untuk masa yang singkat. Jangan kongsi dengan sesiapa.</p>
-  <p style="margin:0 0 8px;line-height:1.55;color:#58685e">This code is valid for a short time. Do not share it with anyone.</p>
+  <p style="margin:0 0 8px;line-height:1.55">Taip kod ini di laman web. Kod ini sah untuk masa yang singkat. Jangan kongsi dengan sesiapa.</p>
+  <p style="margin:0 0 8px;line-height:1.55;color:#58685e">Type this code on the website. It is valid for a short time. Do not share it with anyone.</p>
+  <p style="margin:22px 0 6px;line-height:1.55;font-size:14px">Atau tekan butang ini / Or tap this button:</p>
+  <p style="margin:0 0 8px"><a href="https://bangicarrental.my/auth/confirm?token_hash={{ .TokenHash }}&type=email" style="display:inline-block;background:#195642;color:#ffffff;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:12px">Masuk / Sign in</a></p>
   <p style="margin:24px 0 0;font-size:13px;color:#617066;line-height:1.5">Jika anda tidak meminta kod ini, abaikan emel ini. / If you did not request this code, you can ignore this email.</p>
 </div>

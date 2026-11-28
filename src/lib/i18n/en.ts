@@ -158,6 +158,7 @@ export const en: Dict = {
     errRate: 'Too many attempts. Wait a minute before requesting a new code.',
     errCode: 'That code is wrong or has expired. Check it or request a new one.',
     errCodeFormat: 'Enter the 6-digit code from the email.',
+    errLink: 'That email link is invalid or has expired. Enter your email to get a new code.',
     noPassword: 'No password needed.',
   },
   bookings: {

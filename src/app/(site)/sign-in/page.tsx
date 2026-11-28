@@ -24,6 +24,9 @@ export default async function SignInPage({ searchParams }: PageProps<'/sign-in'>
         <div className="card">
           <h1 className="h-display text-3xl">{d.auth.title}</h1>
           <p className="mt-2 mb-5 leading-relaxed text-muted">{d.auth.intro}</p>
+          {params.error === 'link' && (
+            <p role="alert" className="notice notice-warn mb-4 font-semibold">{d.auth.errLink}</p>
+          )}
           <SignInForm next={next} />
         </div>
       </main>

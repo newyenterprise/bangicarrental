@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { audit } from '@/lib/audit';
 import { claimBookings, safeNext } from '@/lib/auth';
+import { env } from '@/lib/env';
 import { createServiceClient, createUserClient } from '@/lib/supabase/server';
 
 export type SignInState = {
@@ -20,7 +21,15 @@ export async function requestCode(_prev: SignInState, form: FormData): Promise<S
   const parsed = Email.safeParse(form.get('email'));
   if (!parsed.success) return { step: 'email', error: 'errInvalidEmail' };
   const supabase = await createUserClient();
-  const { error } = await supabase.auth.signInWithOtp({ email: parsed.data, options: { shouldCreateUser: true } });
+  const next = safeNext(String(form.get('next') ?? ''), '');
+  const { error } = await supabase.auth.signInWithOtp({
+    email: parsed.data,
+    options: {
+      shouldCreateUser: true,
+      // If the email shows a link rather than (or as well as) the code, the link lands here.
+      emailRedirectTo: `${env.appUrl}/auth/confirm${next ? `?next=${encodeURIComponent(next)}` : ''}`,
+    },
+  });
   if (error) {
     const rate = error.status === 429 || /rate|seconds/i.test(error.message);
     return { step: 'email', email: parsed.data, error: rate ? 'errRate' : 'errSend' };

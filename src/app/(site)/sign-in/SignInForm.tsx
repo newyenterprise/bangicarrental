@@ -17,6 +17,7 @@ export function SignInForm({ next }: { next: string }) {
   if (!onCodeStep) {
     return (
       <form action={(form) => { setRestart(false); sendAction(form); }} className="space-y-4" noValidate>
+        <input type="hidden" name="next" value={next} />
         <div>
           <label className="field-label" htmlFor="email">{d.auth.email}</label>
           <input id="email" name="email" type="email" inputMode="email" autoComplete="email" defaultValue={email} required className="field-input" aria-invalid={!!sent.error} />
@@ -62,6 +63,7 @@ export function SignInForm({ next }: { next: string }) {
       <div className="flex flex-wrap justify-between gap-2">
         <form action={sendAction}>
           <input type="hidden" name="email" value={email} />
+          <input type="hidden" name="next" value={next} />
           <button type="submit" className="btn-plain text-sm underline" disabled={sending}>
             {sending ? d.auth.sending : d.auth.resend}
           </button>
