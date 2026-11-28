@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { klLocal, serviceClient, testEmail } from './helpers';
+import { klLocal, serviceClient, signIn, testEmail } from './helpers';
 
 /**
  * A real Stripe TEST-MODE payment through hosted Checkout. Skipped unless
@@ -11,8 +11,10 @@ test.describe('stripe test checkout', () => {
   test.skip(process.env.RUN_STRIPE_CHECKOUT !== '1', 'set RUN_STRIPE_CHECKOUT=1 to run');
   const email = testEmail('checkout');
 
+  let userId = '';
   test.afterAll(async () => {
     await serviceClient().from('bookings').delete().eq('customer_email', email);
+    if (userId) await serviceClient().auth.admin.deleteUser(userId);
   });
 
   test('pays with a test card and returns to a confirmed booking', async ({ page }, testInfo) => {
@@ -22,13 +24,13 @@ test.describe('stripe test checkout', () => {
     test.skip(testInfo.project.name !== 'desktop', 'Stripe hosted checkout is driven at desktop width only');
     test.setTimeout(180_000);
     const db = serviceClient();
+    userId = await signIn(page, email);
     // Far enough ahead to be free, different each run.
     const offset = 200 + (Math.floor(Date.now() / 60_000) % 150);
     await page.goto(`/book?model=nissan-serena&from=${klLocal(offset, 10)}&to=${klLocal(offset + 2, 10)}`);
     await expect(page.getByText('Mod ujian')).toBeVisible();
     await expect(page.getByTestId('pay-now')).toHaveText('RM700');
     await page.locator('#name').fill('Aina Binti Ali');
-    await page.locator('#email').fill(email);
     await page.locator('#phone').fill('012-345 6789');
     await page.locator('input[name="agree"]').check();
     await page.getByRole('button', { name: /Teruskan ke bayaran/ }).click();

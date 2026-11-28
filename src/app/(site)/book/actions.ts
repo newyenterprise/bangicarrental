@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { audit } from '@/lib/audit';
+import { getSessionUser } from '@/lib/auth';
 import { errorCode } from '@/lib/catalogue';
 import { isLocale } from '@/lib/i18n/config';
 import { createCheckout, reconcileExpiredHolds } from '@/lib/payments';
@@ -21,7 +22,6 @@ export type CheckoutState = {
 
 const Contact = z.object({
   name: z.string().trim().min(2).max(120),
-  email: z.string().trim().toLowerCase().email().max(200),
   phone: z.string().trim().regex(/^\+?\d[\d\s-]{7,17}$/),
 });
 
@@ -32,14 +32,17 @@ const Contact = z.object({
  */
 export async function startCheckout(_prev: CheckoutState, form: FormData): Promise<CheckoutState> {
   const fieldErrors: CheckoutState['fieldErrors'] = {};
+  const user = await getSessionUser();
   const values = {
     name: String(form.get('name') ?? '').slice(0, 120),
-    email: String(form.get('email') ?? '').slice(0, 200),
+    email: user?.email ?? '',
     phone: String(form.get('phone') ?? '').slice(0, 20),
   };
-  const parsed = Contact.safeParse({ name: form.get('name'), email: form.get('email'), phone: form.get('phone') });
+  // Customers must have an account; the booking is created for it and its verified email.
+  if (!user) return { error: 'SIGN_IN_REQUIRED', values };
+  const parsed = Contact.safeParse({ name: form.get('name'), phone: form.get('phone') });
   if (!parsed.success) {
-    for (const issue of parsed.error.issues) fieldErrors[issue.path[0] as 'name' | 'email' | 'phone'] = String(issue.path[0]);
+    for (const issue of parsed.error.issues) fieldErrors[issue.path[0] as 'name' | 'phone'] = String(issue.path[0]);
   }
   if (form.get('agree') !== 'on') fieldErrors.agree = 'agree';
   if (!parsed.success || Object.keys(fieldErrors).length > 0) return { fieldErrors, values };
@@ -69,12 +72,15 @@ export async function startCheckout(_prev: CheckoutState, form: FormData): Promi
     p_starts_at: start.toISOString(),
     p_ends_at: end.toISOString(),
     p_name: parsed.data.name,
-    p_email: parsed.data.email,
+    p_email: user.email,
     p_phone: parsed.data.phone,
     p_locale: locale,
     p_cancellation_terms: localized(settings, 'cancellation_terms', locale),
   });
   if (error || !hold) return { error: errorCode(error?.message), values };
+  await db.from('bookings').update({ renter_id: user.id }).eq('id', (hold as { booking_id: string }).booking_id);
+  // Remember the latest name and phone for next time.
+  await db.from('profiles').update({ full_name: parsed.data.name, phone: parsed.data.phone }).eq('id', user.id);
 
   const result = hold as {
     booking_id: string;
@@ -87,7 +93,7 @@ export async function startCheckout(_prev: CheckoutState, form: FormData): Promi
     booking: {
       id: result.booking_id,
       reference: result.reference,
-      customer_email: parsed.data.email,
+      customer_email: user.email,
       rental_total_sen: result.quote.rental_total_sen,
       days: result.quote.days,
       starts_at: start.toISOString(),

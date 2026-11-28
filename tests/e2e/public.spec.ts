@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectNoHorizontalOverflow, klLocal, setLanguage } from './helpers';
+import { expectNoHorizontalOverflow, klLocal, serviceClient, setLanguage, signIn, testEmail } from './helpers';
 
 const from = klLocal(5, 10);
 const to = klLocal(7, 10);
@@ -55,10 +55,28 @@ test.describe('public site', () => {
     await expect(page.getByTestId('pay-now')).toHaveText('RM1,050');
   });
 
-  test('switching language keeps the page, the dates and the form progress', async ({ page }) => {
+  const accounts: string[] = [];
+  test.afterAll(async () => {
+    for (const id of accounts) await serviceClient().auth.admin.deleteUser(id);
+  });
+
+  test('paying needs an account; sign-up and sign-in links keep the quote', async ({ page }) => {
     await page.goto(`/book?model=nissan-serena&from=${from}&to=${to}`);
+    await expect(page.getByTestId('pay-now')).toHaveText('RM700');
+    const box = page.getByTestId('account-required');
+    await expect(box).toBeVisible();
+    await expect(page.locator('#name')).toHaveCount(0);
+    const back = encodeURIComponent(`/book?model=nissan-serena&from=${from}&to=${to}`);
+    await expect(box.getByRole('link', { name: 'Daftar akaun' })).toHaveAttribute('href', `/sign-up?next=${back}`);
+    await expect(box.getByRole('link', { name: 'Saya sudah ada akaun' })).toHaveAttribute('href', `/sign-in?next=${back}`);
+  });
+
+  test('switching language keeps the page, the dates and the form progress', async ({ page }, testInfo) => {
+    const email = testEmail(`lang-${testInfo.project.name}`);
+    accounts.push(await signIn(page, email));
+    await page.goto(`/book?model=nissan-serena&from=${from}&to=${to}`);
+    await expect(page.getByTestId('account-email')).toHaveText(email);
     await page.locator('#name').fill('Aina Binti Ali');
-    await page.locator('#email').fill('aina@example.test');
     await page.locator('#phone').fill('012-345 6789');
     const url = page.url();
 
@@ -67,7 +85,6 @@ test.describe('public site', () => {
     await expect(page.getByText('Pay now')).toBeVisible();
     await expect(page.getByTestId('pay-now')).toHaveText('RM700');
     await expect(page.locator('#name')).toHaveValue('Aina Binti Ali');
-    await expect(page.locator('#email')).toHaveValue('aina@example.test');
     await expect(page.locator('#phone')).toHaveValue('012-345 6789');
 
     // The choice persists for the next visit, and can be switched back.
@@ -78,16 +95,17 @@ test.describe('public site', () => {
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Nak ke mana');
   });
 
-  test('validation messages are translated and nothing is charged without consent', async ({ page }) => {
+  test('validation messages are translated and nothing is charged without consent', async ({ page }, testInfo) => {
+    accounts.push(await signIn(page, testEmail(`valid-${testInfo.project.name}`)));
     await page.goto(`/book?model=nissan-serena&from=${from}&to=${to}`);
     await page.locator('#name').fill('Aina Binti Ali');
-    await page.locator('#email').fill('not-an-email');
+    await page.locator('#phone').fill('12');
     await page.getByRole('button', { name: /Teruskan ke bayaran/ }).click();
-    await expect(page.getByText('Masukkan alamat emel yang sah.')).toBeVisible();
+    await expect(page.getByText('Masukkan nombor telefon yang sah.')).toBeVisible();
     await expect(page.getByText('Tandakan kotak untuk sahkan')).toBeVisible();
     await expect(page.locator('#name')).toHaveValue('Aina Binti Ali');
     await setLanguage(page, 'en');
-    await expect(page.getByText('Enter a valid email address.')).toBeVisible();
+    await expect(page.getByText('Enter a valid phone number.')).toBeVisible();
   });
 
   for (const locale of ['ms', 'en'] as const) {
@@ -100,6 +118,7 @@ test.describe('public site', () => {
         '/book?model=nissan-serena',
         '/book?model=toyota-vellfire',
         '/sign-in',
+        '/sign-up',
         '/book/status?b=00000000-0000-4000-8000-000000000000',
       ];
       for (const path of pages) {

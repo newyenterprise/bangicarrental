@@ -18,6 +18,9 @@ export function CheckoutForm({
   holdMinutes,
   leadTimeHours,
   maxDays,
+  accountEmail,
+  defaultName,
+  defaultPhone,
 }: {
   modelId: string;
   from: string;
@@ -26,6 +29,9 @@ export function CheckoutForm({
   holdMinutes: number;
   leadTimeHours: number;
   maxDays: number;
+  accountEmail: string;
+  defaultName: string;
+  defaultPhone: string;
 }) {
   const { d, locale } = useI18n();
   const [state, action, pending] = useActionState<CheckoutState, FormData>(startCheckout, {});
@@ -46,17 +52,15 @@ export function CheckoutForm({
 
       <div>
         <label className="field-label" htmlFor="name">{d.book.name}</label>
-        <input id="name" name="name" defaultValue={state.values?.name ?? ''} className="field-input" autoComplete="name" required aria-invalid={!!fieldError('name')} aria-describedby={fieldError('name') ? 'name-error' : undefined} />
+        <input id="name" name="name" defaultValue={state.values?.name ?? defaultName} className="field-input" autoComplete="name" required aria-invalid={!!fieldError('name')} aria-describedby={fieldError('name') ? 'name-error' : undefined} />
         {fieldError('name') && <p id="name-error" className="field-error">{fieldError('name')}</p>}
       </div>
-      <div>
-        <label className="field-label" htmlFor="email">{d.book.email}</label>
-        <input id="email" name="email" defaultValue={state.values?.email ?? ''} type="email" inputMode="email" className="field-input" autoComplete="email" required aria-invalid={!!fieldError('email')} aria-describedby={fieldError('email') ? 'email-error' : undefined} />
-        {fieldError('email') && <p id="email-error" className="field-error">{fieldError('email')}</p>}
+      <div className="rounded-xl bg-mist px-3 py-2 text-sm">
+        {d.book.accountEmail} <strong className="break-all" data-testid="account-email">{accountEmail}</strong>
       </div>
       <div>
         <label className="field-label" htmlFor="phone">{d.book.phone}</label>
-        <input id="phone" name="phone" defaultValue={state.values?.phone ?? ''} type="tel" inputMode="tel" className="field-input" autoComplete="tel" required aria-invalid={!!fieldError('phone')} aria-describedby="phone-hint" />
+        <input id="phone" name="phone" defaultValue={state.values?.phone ?? defaultPhone} type="tel" inputMode="tel" className="field-input" autoComplete="tel" required aria-invalid={!!fieldError('phone')} aria-describedby="phone-hint" />
         {fieldError('phone') ? <p className="field-error">{fieldError('phone')}</p> : <p id="phone-hint" className="field-hint">{d.book.phoneHint}</p>}
       </div>
 

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { SiteHeader } from '@/components/SiteChrome';
 import { getSessionUser, safeNext } from '@/lib/auth';
@@ -28,6 +29,12 @@ export default async function SignInPage({ searchParams }: PageProps<'/sign-in'>
             <p role="alert" className="notice notice-warn mb-4 font-semibold">{d.auth.errLink}</p>
           )}
           <SignInForm next={next} />
+          <p className="mt-5 border-t border-line-soft pt-3 text-center text-sm">
+            {d.auth.noAccount}{' '}
+            <Link href={`/sign-up${next ? `?next=${encodeURIComponent(next)}` : ''}`} className="font-bold underline">
+              {d.auth.signUpLink}
+            </Link>
+          </p>
         </div>
       </main>
     </>

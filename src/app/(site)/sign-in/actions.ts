@@ -11,7 +11,7 @@ export type SignInState = {
   step: 'email' | 'code';
   email?: string;
   /** Key in d.auth */
-  error?: 'errInvalidEmail' | 'errSend' | 'errRate' | 'errCode' | 'errCodeFormat';
+  error?: 'errInvalidEmail' | 'errSend' | 'errRate' | 'errCode' | 'errCodeFormat' | 'errNoAccount';
 };
 
 const Email = z.string().trim().toLowerCase().email().max(200);
@@ -25,14 +25,16 @@ export async function requestCode(_prev: SignInState, form: FormData): Promise<S
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data,
     options: {
-      shouldCreateUser: true,
+      // New customers sign up on /sign-up (name, phone, password); this only signs existing accounts in.
+      shouldCreateUser: false,
       // If the email shows a link rather than (or as well as) the code, the link lands here.
       emailRedirectTo: `${env.appUrl}/auth/confirm${next ? `?next=${encodeURIComponent(next)}` : ''}`,
     },
   });
   if (error) {
     const rate = error.status === 429 || /rate|seconds/i.test(error.message);
-    return { step: 'email', email: parsed.data, error: rate ? 'errRate' : 'errSend' };
+    const noAccount = error.code === 'otp_disabled' || /signups? not allowed|not found/i.test(error.message);
+    return { step: 'email', email: parsed.data, error: rate ? 'errRate' : noAccount ? 'errNoAccount' : 'errSend' };
   }
   return { step: 'code', email: parsed.data };
 }

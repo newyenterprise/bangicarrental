@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState, useState } from 'react';
 import { fmt } from '@/lib/i18n/config';
 import { useI18n } from '@/lib/i18n/client';
@@ -22,6 +23,11 @@ function CodeSignIn({ next }: { next: string }) {
           <label className="field-label" htmlFor="email">{d.auth.email}</label>
           <input id="email" name="email" type="email" inputMode="email" autoComplete="email" defaultValue={email} required className="field-input" aria-invalid={!!sent.error} />
           {sent.error && <p role="alert" className="field-error">{d.auth[sent.error]}</p>}
+          {sent.error === 'errNoAccount' && (
+            <Link href={`/sign-up${next ? `?next=${encodeURIComponent(next)}` : ''}`} className="btn btn-secondary btn-sm mt-2">
+              {d.auth.signUpLink}
+            </Link>
+          )}
         </div>
         <button type="submit" className="btn w-full" disabled={sending}>
           {sending ? d.auth.sending : d.auth.sendCode}

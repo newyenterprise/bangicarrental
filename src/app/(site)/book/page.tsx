@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { DateSearch } from '@/components/DateSearch';
+import { getSessionUser } from '@/lib/auth';
+import { createServiceClient } from '@/lib/supabase/server';
 import { SiteHeader } from '@/components/SiteChrome';
 import { defaultPeriod, getPublicModels, getQuote, readPeriod } from '@/lib/catalogue';
 import { fmt } from '@/lib/i18n/config';
@@ -89,6 +91,11 @@ export default async function BookPage({ searchParams }: PageProps<'/book'>) {
       );
     } else {
       const { quote } = result;
+      const user = await getSessionUser();
+      const profile = user
+        ? (await createServiceClient().from('profiles').select('full_name, phone').eq('id', user.id).maybeSingle()).data
+        : null;
+      const returnTo = `/book?model=${model.slug}&from=${period.from}&to=${period.to}`;
       const deadline = new Date(period.start.getTime() - settings.verification_deadline_hours * 3600_000);
       const terms = localized(settings, 'cancellation_terms', locale);
       body = (
@@ -152,19 +159,33 @@ export default async function BookPage({ searchParams }: PageProps<'/book'>) {
             </section>
           </div>
 
-          <section className="card lg:sticky lg:top-4" aria-labelledby="contact-title">
-            <h2 id="contact-title" className="text-xl font-bold tracking-tight">{d.book.contactTitle}</h2>
-            <p className="mt-1 mb-4 text-sm text-muted">{d.book.contactIntro}</p>
-            <CheckoutForm
-              modelId={model.id}
-              from={period.from}
-              to={period.to}
-              amountLabel={formatRM(quote.rental_total_sen)}
-              holdMinutes={settings.hold_minutes}
-              leadTimeHours={settings.lead_time_hours}
-              maxDays={settings.max_rental_days}
-            />
-          </section>
+          {user ? (
+            <section className="card lg:sticky lg:top-4" aria-labelledby="contact-title">
+              <h2 id="contact-title" className="text-xl font-bold tracking-tight">{d.book.contactTitle}</h2>
+              <p className="mt-1 mb-4 text-sm text-muted">{d.book.contactIntro}</p>
+              <CheckoutForm
+                modelId={model.id}
+                from={period.from}
+                to={period.to}
+                amountLabel={formatRM(quote.rental_total_sen)}
+                holdMinutes={settings.hold_minutes}
+                leadTimeHours={settings.lead_time_hours}
+                maxDays={settings.max_rental_days}
+                accountEmail={user.email}
+                defaultName={profile?.full_name ?? ''}
+                defaultPhone={profile?.phone ?? ''}
+              />
+            </section>
+          ) : (
+            <section className="card lg:sticky lg:top-4" aria-labelledby="account-title" data-testid="account-required">
+              <h2 id="account-title" className="text-xl font-bold tracking-tight">{d.book.accountTitle}</h2>
+              <p className="mt-1 mb-4 text-sm leading-relaxed text-muted">{d.book.accountBody}</p>
+              <div className="flex flex-col gap-3">
+                <Link href={`/sign-up?next=${encodeURIComponent(returnTo)}`} className="btn w-full">{d.book.signUpCta}</Link>
+                <Link href={`/sign-in?next=${encodeURIComponent(returnTo)}`} className="btn btn-secondary w-full">{d.book.signInCta}</Link>
+              </div>
+            </section>
+          )}
         </div>
       );
     }
