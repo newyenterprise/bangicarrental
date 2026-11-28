@@ -57,6 +57,8 @@ For local development set `APP_URL=http://localhost:3000` and, if you have no Re
 
 New tables added later get no API access by default only if you keep the pattern in `*_rls.sql`: enable RLS, revoke from `anon`/`authenticated`, grant `select` where needed.
 
+**Password sign-in (optional):** in Authentication > Sign In / Providers > Email, set the minimum password length to **8** and password requirements to "Lowercase, uppercase letters, digits and symbols". Keep "Confirm email" on. The site applies the same rules itself, and only accepts passwords set on its Account page after the email has been verified.
+
 ## First admin
 
 There is no default or shared admin password. Sign-in is always a one-time 6-digit code sent by email; the admin role is a flag in the database that only the service role can set.

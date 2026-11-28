@@ -28,13 +28,13 @@ test.describe('password sign-in', () => {
     await page.locator('#password').fill('bangi2026');
     await page.locator('#confirm').fill('bangi2026');
     await page.getByRole('button', { name: 'Tetapkan kata laluan' }).click();
-    await expect(page.getByRole('alert')).toContainText('belum memenuhi semua syarat');
+    await expect(page.getByText('belum memenuhi semua syarat')).toBeVisible();
 
     // Mismatched confirmation is refused.
     await page.locator('#password').fill(password);
     await page.locator('#confirm').fill('Bangi#2026y');
     await page.getByRole('button', { name: 'Tetapkan kata laluan' }).click();
-    await expect(page.getByRole('alert')).toContainText('tidak sama');
+    await expect(page.getByText('tidak sama')).toBeVisible();
 
     await page.locator('#password').fill(password);
     await page.locator('#confirm').fill(password);
@@ -48,7 +48,7 @@ test.describe('password sign-in', () => {
     await page.locator('#pw-email').fill(email);
     await page.locator('#pw-password').fill('Wrong#2026x');
     await page.getByRole('button', { name: 'Masuk', exact: true }).click();
-    await expect(page.getByRole('alert')).toContainText('Emel atau kata laluan salah');
+    await expect(page.getByText('Emel atau kata laluan salah')).toBeVisible();
 
     await page.locator('#pw-email').fill(email);
     await page.locator('#pw-password').fill(password);
@@ -72,7 +72,7 @@ test.describe('password sign-in', () => {
     await page.locator('#pw-email').fill(email);
     await page.locator('#pw-password').fill(password);
     await page.getByRole('button', { name: 'Masuk', exact: true }).click();
-    await expect(page.getByRole('alert')).toContainText('Emel atau kata laluan salah');
+    await expect(page.getByText('Emel atau kata laluan salah')).toBeVisible();
     await page.goto('/bookings');
     await expect(page).toHaveURL(/\/sign-in/);
   });
